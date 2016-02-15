@@ -1,0 +1,90 @@
+all_tweets = read.csv("C:/Users/Derek/Desktop/Data Analytics/Data/alldata/alldata/alltweets.csv")
+
+djia = read.csv("C:/Users/Derek/Desktop/Data Analytics/Data/alldata/alldata/djia.csv")
+
+djia_tweets = sqldf("select *
+                    from all_tweets where 
+                    symbol in (select * from djia)
+                    ")
+
+exchange = sqldf("select distinct(exchange)
+                 from djia_tweets
+                 ")
+
+aapl_stock_all = read.csv("C:/Users/Derek/Desktop/Data Analytics/Data/alldata/alldata/AAPL.csv")
+
+aapl_stock_fin = sqldf("select *
+                       from aapl_stock_all
+                       ")
+#date format conversion
+aapl_stock_fin$sdate = aapl_stock_fin$Date 
+
+#load sentiment data from apple
+aapl_sent_all = sqldf("select *
+                      from all_tweets where symbol = 'AAPL'
+                      ")
+
+# convert sentiment timestamp to date string
+aapl_sent_fin = sqldf("select *,substr(timestamp_utc, 1, 10) as date
+                      from aapl_sent_all
+                      ")
+
+aapl_sent_fin$sdate <- as.Date(aapl_sent_fin$date,'%Y-%m-%d')
+
+aapl_total = sqldf("select f.*,s.TOTAL_SCANNED_MESSAGES,s.BULL_SCORED_MESSAGES,s.BEAR_SCORED_MESSAGES
+                   from aapl_stock_fin f  
+                   left join aapl_sent_fin s on f.sdate = s.sdate")
+
+#vdiff = c(diff(aapl_total$Volume),1)
+#sdiff = c(diff(aapl_total$TOTAL_SCANNED_MESSAGES),1)
+#aapl_total$sdiff = sdiff
+#aapl_total$vdiff = vdiff
+
+#sqldf("select strftime('%d-%m-%Y', 'now')")
+
+#bounds = data.frame(date_from = as.integer(as.POSIXct("2013-09-12")),
+#date_to = as.integer(as.POSIXct("2013-09-30"))
+
+
+aapl_total = sqldf("select * from aapl_total  order by sdate")
+
+Bounds <- data.frame(date_from = as.POSIXct("2014-01-01 00:00:00"), 
+                     date_to = as.POSIXct("2015-12-31 00:00:00"))
+
+aapl_total = sqldf("select s.* from aapl_total s, Bounds b where 
+                   s.sdate between date_from and date_to")
+
+#aapl_ans = sqldf("select sdate, volume,BEAR_SCORED_MESSAGES from aapl_total order by sdate")
+
+#attach(aapl_ans)
+# plot the time series
+#par(mfrow=c(2,1))
+plot.ts(aapl_total$vdiff)
+plot.ts(aapl_total$sdiff)
+
+
+#ndiffs(aapl_total$vdiff, alpha=0.05, test=c("kpss")) 
+
+#dvolume = diff(aapl_ans$Volume)
+#plot.ts(dvolume)
+
+
+#ndiffs(aapl_ans$BEAR_SCORED_MESSAGES, alpha=0.05, test=c("kpss")) 
+
+#dscans = diff(aapl_ans$BEAR_SCORED_MESSAGES)
+#plot.ts(dscans)
+
+
+adf.test(aapl_total$TOTAL_SCANNED_MESSAGES)
+kpss.test(aapl_total$TOTAL_SCANNED_MESSAGES)
+
+adf.test(aapl_total$sdiff)
+kpss.test(aapl_total$sdiff)
+
+
+grangertest(  sdiff ~  vdiff, order=1)
+
+#
+
+#x <- rnorm(1000)  # is level stationary
+#kpss.test(x)
